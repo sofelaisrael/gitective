@@ -16,9 +16,10 @@ func main() {
 	rawFig := figure.NewFigure("Gitective", "slant", true).String()
 	raw := strings.TrimSuffix(rawFig, "\n")
 	styled := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#7D56F4")).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#5E3FD0")).
+		Foreground(lipgloss.Color("#FAFAFA")).
+		Background(lipgloss.Color("#1A1A1E")).
+		Border(lipgloss.ThickBorder()).
+		BorderForeground(lipgloss.Color("#FAFAFA")).
 		Padding(0, 2).
 		MarginBottom(1).
 		Bold(true).
