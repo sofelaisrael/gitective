@@ -10,7 +10,6 @@ gitective
 /vendor/
 *.test
 *.out
-go.sum
 
 # IDE
 .idea/
