@@ -1,0 +1,28 @@
+# Binaries
+gitective.exe
+gitective
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+/vendor/
+*.test
+*.out
+go.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build output
+/dist/
+/bin/
