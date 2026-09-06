@@ -1,43 +1,29 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"strings"
 
-	figure "github.com/common-nighthawk/go-figure"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/pterm/pterm"
 	"github.com/sofelaisrael/gitective/internal/git"
+	"github.com/sofelaisrael/gitective/internal/ui"
 )
 
+// main is the orchestrator for gitective CLI — renders Brutalist C banner,
+// checks git repository state, and delegates styling/feedback to internal/ui.
 func main() {
-	rawFig := figure.NewFigure("Gitective", "slant", true).String()
-	raw := strings.TrimSuffix(rawFig, "\n")
-	styled := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FAFAFA")).
-		Background(lipgloss.Color("#1A1A1E")).
-		Border(lipgloss.ThickBorder()).
-		BorderForeground(lipgloss.Color("#FAFAFA")).
-		Padding(0, 2).
-		MarginBottom(1).
-		Bold(true).
-		Render(raw)
-	fmt.Println(styled)
-
-	spinner, _ := pterm.DefaultSpinner.Start("Detecting git repository...")
+	fmt.Println(ui.RenderBanner("Gitective"))
+	spinner, _ := ui.Spinner("Detecting git repository...")
 	root, err := git.FindRepository(".")
 	if err != nil {
 		spinner.Fail("Repository check failed")
-		if errors.Is(err, git.ErrNotRepository) {
-			pterm.Error.Println("Not a git repository (or any parent). Run `git init` to initialize.")
+		if ui.HandleRepoError(err) {
 			os.Exit(1)
 		}
 		pterm.Error.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 	spinner.Success("Repository found")
-	pterm.Success.Printf("Repository: %s\n", root)
-	pterm.Info.Println("Investigating your Git history...")
+	ui.Successf("Repository: %s\n", root)
+	ui.Info("Investigating your Git history...")
 }
