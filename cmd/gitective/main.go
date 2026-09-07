@@ -41,6 +41,9 @@ func main() {
 			if *theme == "cyberpunk" {
 				t := themes.CyberpunkTheme{}
 				fmt.Println(t.Render(facts))
+			} else if *theme == "renaissance" {
+				t := themes.RenaissanceTheme{}
+				fmt.Println(t.Render(facts))
 			} else {
 				fmt.Println(facts.Message)
 			}
