@@ -33,6 +33,7 @@ func main() {
 		timingData = append(timingData, analysis.CommitData{Timestamp: c.Timestamp})
 	}
 	timing := analysis.AnalyzeTiming(timingData)
+	activity := analysis.AnalyzeActivity(timingData)
 	ui.Successf("Repository: %s\n", root)
 	pterm.Info.Println(fmt.Sprintf("Commits found: %d", len(commits)))
 	fmt.Println()
@@ -44,6 +45,14 @@ func main() {
 	fmt.Println()
 	fmt.Println("Investigation:")
 	fmt.Println("Most active period:", analysis.DominantPeriod(timing))
+	fmt.Println()
+	fmt.Println("Activity:")
+	fmt.Println("Total commits:", activity.TotalCommits)
+	fmt.Printf("Average commits/day: %.2f\n", activity.AveragePerDay)
+	fmt.Println("Most active day:", activity.MostActiveDay)
+	fmt.Println("Most active weekday:", activity.MostActiveWeekday)
+	fmt.Println("Most commits in one day:", activity.MaxCommitsInDay)
+	fmt.Println("Longest inactive gap:", activity.LongestInactiveGap)
 	for i, commit := range commits {
 		if i == 10 {
 			break
