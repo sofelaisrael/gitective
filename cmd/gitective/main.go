@@ -9,8 +9,6 @@ import (
 	"github.com/sofelaisrael/gitective/internal/ui"
 )
 
-// main is the orchestrator for gitective CLI — renders Brutalist C banner,
-// checks git repository state, and delegates styling/feedback to internal/ui.
 func main() {
 	fmt.Println(ui.RenderBanner("Gitective"))
 	spinner, _ := ui.Spinner("Detecting git repository...")
