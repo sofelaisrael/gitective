@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/pterm/pterm"
+	"github.com/sofelaisrael/gitective/internal/analysis"
 	"github.com/sofelaisrael/gitective/internal/git"
 	"github.com/sofelaisrael/gitective/internal/ui"
 )
@@ -27,8 +28,22 @@ func main() {
 		pterm.Error.Printf("Could not read Git history: %v\n", err)
 		os.Exit(1)
 	}
-	pterm.Info.Println(fmt.Sprintf("Commits found: %d", len(commits)))
+	timingData := make([]analysis.CommitData, 0, len(commits))
+	for _, c := range commits {
+		timingData = append(timingData, analysis.CommitData{Timestamp: c.Timestamp})
+	}
+	timing := analysis.AnalyzeTiming(timingData)
 	ui.Successf("Repository: %s\n", root)
+	pterm.Info.Println(fmt.Sprintf("Commits found: %d", len(commits)))
+	fmt.Println()
+	fmt.Println("Coding hours:")
+	fmt.Printf("Morning:   %d (%.1f%%)\n", timing.Morning, analysis.Percentage(timing.Morning, timing.Total))
+	fmt.Printf("Afternoon: %d (%.1f%%)\n", timing.Afternoon, analysis.Percentage(timing.Afternoon, timing.Total))
+	fmt.Printf("Evening:   %d (%.1f%%)\n", timing.Evening, analysis.Percentage(timing.Evening, timing.Total))
+	fmt.Printf("Night:     %d (%.1f%%)\n", timing.Night, analysis.Percentage(timing.Night, timing.Total))
+	fmt.Println()
+	fmt.Println("Investigation:")
+	fmt.Println("Most active period:", analysis.DominantPeriod(timing))
 	for i, commit := range commits {
 		if i == 10 {
 			break
