@@ -17,7 +17,7 @@ type TimeAnalysis struct {
 func AnalyzeTiming(commits []CommitData) TimeAnalysis {
 	var result TimeAnalysis
 	for _, commit := range commits {
-		hour := commit.Timestamp.Hour()
+		hour := commit.Timestamp.In(time.Local).Hour()
 		switch {
 		case hour >= 5 && hour < 12:
 			result.Morning++
