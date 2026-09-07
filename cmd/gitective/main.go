@@ -5,9 +5,11 @@ import (
 	"os"
 
 	"github.com/pterm/pterm"
-	"github.com/sofelaisrael/gitective/internal/analysis"
 	"github.com/sofelaisrael/gitective/internal/git"
+	commitPkg "github.com/sofelaisrael/gitective/internal/commit"
+	"github.com/sofelaisrael/gitective/internal/analysis"
 	"github.com/sofelaisrael/gitective/internal/ui"
+	themes "github.com/sofelaisrael/gitective/internal/themes"
 )
 
 func main() {
@@ -27,6 +29,14 @@ func main() {
 	if err != nil {
 		pterm.Error.Printf("Could not read Git history: %v\n", err)
 		os.Exit(1)
+	}
+	if len(commits) > 0 {
+		latest := commits[0]
+		facts, err := commitPkg.ExtractFacts(root, latest.Hash)
+		if err == nil {
+			theme := themes.CyberpunkTheme{}
+			fmt.Println(theme.Render(facts))
+		}
 	}
 	timingData := make([]analysis.CommitData, 0, len(commits))
 	for _, c := range commits {
