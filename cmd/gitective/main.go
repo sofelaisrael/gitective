@@ -1,18 +1,22 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/pterm/pterm"
-	"github.com/sofelaisrael/gitective/internal/git"
-	commitPkg "github.com/sofelaisrael/gitective/internal/commit"
 	"github.com/sofelaisrael/gitective/internal/analysis"
-	"github.com/sofelaisrael/gitective/internal/ui"
+	commitPkg "github.com/sofelaisrael/gitective/internal/commit"
+	"github.com/sofelaisrael/gitective/internal/git"
 	themes "github.com/sofelaisrael/gitective/internal/themes"
+	"github.com/sofelaisrael/gitective/internal/ui"
 )
 
 func main() {
+	theme := flag.String("theme", "cyberpunk", "theme to use")
+	demo := flag.Bool("demo", false, "demo mode")
+	flag.Parse()
 	fmt.Println(ui.RenderBanner("Gitective"))
 	spinner, _ := ui.Spinner("Detecting git repository...")
 	root, err := git.FindRepository(".")
@@ -34,9 +38,16 @@ func main() {
 		latest := commits[0]
 		facts, err := commitPkg.ExtractFacts(root, latest.Hash)
 		if err == nil {
-			theme := themes.CyberpunkTheme{}
-			fmt.Println(theme.Render(facts))
+			if *theme == "cyberpunk" {
+				t := themes.CyberpunkTheme{}
+				fmt.Println(t.Render(facts))
+			} else {
+				fmt.Println(facts.Message)
+			}
 		}
+	}
+	if *demo {
+		return
 	}
 	timingData := make([]analysis.CommitData, 0, len(commits))
 	for _, c := range commits {
