@@ -13,5 +13,22 @@ func (CyberpunkTheme) Name() string { return "cyberpunk" }
 
 func (CyberpunkTheme) Render(facts commit.CommitFacts) string {
 	p := personality.Classify(facts)
-	return fmt.Sprintf("⚡ NIGHT//PROTOCOL\n\nTarget: %s\nAuthor: %s\nFiles: %d  +%d/-%d\nFiles list: %v\nPersonality: %s\nStatus: SYSTEM SECURED.", facts.Message, facts.Author, facts.FilesChanged, facts.LinesAdded, facts.LinesDeleted, facts.Files, p)
+	var verseName string
+	switch p {
+	case personality.PanicPatch:
+		verseName = "CORPORATE TRIAGE"
+	case personality.NuclearJanitor:
+		verseName = "SECTOR PURGE"
+	case personality.Janitor:
+		verseName = "SANITATION CREW"
+	case personality.MadScientist:
+		verseName = "NEO-FORGE"
+	case personality.Architect:
+		verseName = "NEO-ARCHITECT"
+	case personality.SilentCommit:
+		verseName = "GHOST SIGNAL"
+	case personality.Shipper:
+		verseName = "FREIGHT RUNNER"
+	}
+	return fmt.Sprintf("⚡ NIGHT//PROTOCOL [%s]\n\nTarget: %s\nAuthor: %s\nFiles: %d  +%d/-%d\nStatus: SYSTEM SECURED.", verseName, facts.Message, facts.Author, facts.FilesChanged, facts.LinesAdded, facts.LinesDeleted)
 }
