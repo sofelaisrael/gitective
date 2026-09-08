@@ -34,6 +34,14 @@ func main() {
 		pterm.Error.Printf("Could not read Git history: %v\n", err)
 		os.Exit(1)
 	}
+	timingDataDemo := make([]analysis.CommitData, 0, len(commits))
+	for _, c := range commits {
+		timingDataDemo = append(timingDataDemo, analysis.CommitData{Timestamp: c.Timestamp})
+	}
+	timingDemo := analysis.AnalyzeTiming(timingDataDemo)
+	if *demo {
+		fmt.Printf("History: %s (Morning %d%% · Night %d%%)\n", analysis.DominantPeriod(timingDemo), int(analysis.Percentage(timingDemo.Morning, timingDemo.Total)), int(analysis.Percentage(timingDemo.Night, timingDemo.Total)))
+	}
 	if len(commits) > 0 {
 		latest := commits[0]
 		facts, err := commitPkg.ExtractFacts(root, latest.Hash)
