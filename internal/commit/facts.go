@@ -4,6 +4,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type CommitFacts struct {
@@ -14,11 +15,13 @@ type CommitFacts struct {
 	LinesAdded   int
 	LinesDeleted int
 	Files        []string
+	Timestamp    time.Time
+	IsFix        bool
 }
 
 func ExtractFacts(repoPath string, hash string) (CommitFacts, error) {
 	facts := CommitFacts{Hash: hash}
-	cmd := exec.Command("git", "-C", repoPath, "show", "-s", "--format=%s%x1f%an", hash)
+	cmd := exec.Command("git", "-C", repoPath, "show", "-s", "--format=%s%x1f%an%x1f%aI", hash)
 	out, err := cmd.Output()
 	if err != nil {
 		return facts, err
@@ -29,6 +32,14 @@ func ExtractFacts(repoPath string, hash string) (CommitFacts, error) {
 	}
 	if len(parts) >= 2 {
 		facts.Author = parts[1]
+	}
+	if len(parts) >= 3 {
+		if t, err := time.Parse(time.RFC3339, parts[2]); err == nil {
+			facts.Timestamp = t
+		}
+	}
+	if len(parts) >= 1 {
+		facts.IsFix = strings.Contains(strings.ToLower(parts[0]), "fix")
 	}
 	cmd2 := exec.Command("git", "-C", repoPath, "show", "--numstat", "--format=", hash)
 	out2, err := cmd2.Output()
