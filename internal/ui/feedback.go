@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/pterm/pterm"
 	"github.com/sofelaisrael/gitective/internal/git"
 )
@@ -21,4 +22,18 @@ func HandleRepoError(err error) bool {
 		return true
 	}
 	return false
+}
+
+func RenderBox(header, body, footer string) string {
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#FF3366")).
+		PaddingLeft(1).PaddingRight(1).
+		MarginTop(1)
+
+	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF3366")).Bold(true)
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
+
+	content := accentStyle.Render(header) + "\n\n" + body + "\n\n" + dimStyle.Render(footer)
+	return box.Render(content)
 }
