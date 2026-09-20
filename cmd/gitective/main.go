@@ -17,6 +17,7 @@ import (
 
 func main() {
 	commitFlag := flag.Bool("commit", false, "Suggest a commit message from uncommitted changes")
+	shortCommitFlag := flag.Bool("c", false, "Same as --commit")
 	setupFlag := flag.Bool("setup", false, "Run the interactive setup wizard")
 	styleFlag := flag.String("style", "", "Override default style")
 	themeFlag := flag.String("theme", "", "Legacy theme fallback if style-engine is offline")
@@ -27,7 +28,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: gitective [command] [options]\n\n")
 		fmt.Fprintf(os.Stderr, "Commands:\n")
 		fmt.Fprintf(os.Stderr, "  (none)       Visualize recent commits\n")
-		fmt.Fprintf(os.Stderr, "  --commit     Suggest a commit message from uncommitted changes\n\n")
+		fmt.Fprintf(os.Stderr, "  -c           Suggest a commit message from uncommitted changes\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		fmt.Fprintf(os.Stderr, "  --setup          Run interactive setup wizard\n")
 		fmt.Fprintf(os.Stderr, "  --style string   Override default style\n")
@@ -66,7 +67,7 @@ func main() {
 		intensity = *intensityFlag
 	}
 
-	if *commitFlag {
+	if *commitFlag || *shortCommitFlag {
 		runCommitSuggest(style, intensity, cfg.StyleEngineURL)
 		return
 	}
@@ -101,17 +102,26 @@ func runCommitSuggest(style string, intensity float64, engineURL string) {
 	pterm.Info.Printf("Generating commit message (style: %s)...\n", style)
 
 	client := llm.NewClient(engineURL)
-	userPrompt := llm.BuildCommitUserPrompt(diff)
-	result, err := client.Transform(userPrompt, style, intensity)
+	userPrompt := llm.BuildStyledCommitPrompt(diff)
+	result, err := client.Transform(userPrompt, style, intensity, 25)
 	if err != nil {
 		pterm.Error.Printf("Style-engine error: %v\n", err)
 		return
 	}
 
+	styled := strings.TrimSpace(result.Transformed)
 	color := ui.StyleColor(style)
 	header := "// SUGGESTED COMMIT"
 	footer := fmt.Sprintf("Style: %s | Score: %.0f%%", style, result.Score*100)
-	fmt.Println(ui.RenderBox(header, result.Transformed, footer, color))
+	fmt.Println(ui.RenderBox(header, styled, footer, color))
+
+	fullMsg := git.AppendTrailers(styled, style, intensity)
+
+	fmt.Println()
+	pterm.Info.Println("To use this message:")
+	fmt.Println()
+	fmt.Printf("  git commit -m \"%s\"\n", strings.ReplaceAll(fullMsg, "\n", "\\n\\n"))
+	fmt.Println()
 }
 
 func runVisualizer(style string, intensity float64, engineURL string, numCommits int, theme string) {
@@ -145,32 +155,34 @@ func runVisualizer(style string, intensity float64, engineURL string, numCommits
 	}
 
 	client := llm.NewClient(engineURL)
-	color := ui.StyleColor(style)
+
+	commitStyles := make([]git.CommitStyle, n)
+	for i := 0; i < n; i++ {
+		commitStyles[i] = git.ReadTrailers(root, commits[i].Hash)
+	}
+
+	fmt.Println(ui.RenderCommitTree(commits[:n], commitStyles))
 
 	for i := 0; i < n; i++ {
 		latest := commits[i]
+		cs := commitStyles[i]
+
 		facts, err := commitPkg.ExtractFacts(root, latest.Hash)
 		if err != nil {
 			pterm.Error.Printf("Error extracting facts for %s: %v\n", latest.Hash[:8], err)
 			continue
 		}
 
-		if i == 0 || numCommits == 1 {
-			pterm.Info.Printf("Style: %s | Intensity: %.0f%%\n", style, intensity*100)
-		}
-
 		contextPrompt := llm.BuildContext(facts)
-		result, err := client.Transform(contextPrompt, style, intensity)
+		result, err := client.Transform(contextPrompt, cs.Style, cs.Intensity, 0)
 		if err != nil {
-			pterm.Warning.Printf("Style-engine unavailable: %v\n", err)
-			pterm.Info.Println("Falling back to local theme...")
-			fallbackRender(facts, theme)
+			pterm.Warning.Printf("Style-engine unavailable for %s: %v\n", latest.Hash[:8], err)
 			continue
 		}
 
-		header := fmt.Sprintf("// %s", strings.ToUpper(style))
-		footer := fmt.Sprintf("Score: %.0f%% | %d retries", result.Score*100, result.Retries)
-		fmt.Println(ui.RenderBox(header, result.Transformed, footer, color))
+		header := fmt.Sprintf("// %s", strings.ToUpper(cs.Style))
+		footer := fmt.Sprintf("%s · %s · Score: %.0f%%", latest.Hash[:7], latest.Author, result.Score*100)
+		fmt.Println(ui.RenderBox(header, result.Transformed, footer, ui.StyleColor(cs.Style)))
 	}
 }
 

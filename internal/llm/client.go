@@ -13,6 +13,7 @@ type TransformRequest struct {
 	Text      string  `json:"text"`
 	Style     string  `json:"style"`
 	Intensity float64 `json:"intensity"`
+	MaxWords  int     `json:"max_words,omitempty"`
 }
 
 type TransformResponse struct {
@@ -41,11 +42,12 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
-func (c *Client) Transform(text, style string, intensity float64) (*TransformResponse, error) {
+func (c *Client) Transform(text, style string, intensity float64, maxWords int) (*TransformResponse, error) {
 	req := TransformRequest{
 		Text:      text,
 		Style:     style,
 		Intensity: intensity,
+		MaxWords:  maxWords,
 	}
 
 	body, err := json.Marshal(req)
