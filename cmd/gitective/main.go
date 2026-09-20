@@ -16,47 +16,52 @@ import (
 )
 
 func main() {
-	cfg := config.Load()
+	setupFlag := flag.Bool("setup", false, "Run the interactive setup wizard")
 
-	styleFlag := flag.String("style", cfg.DefaultStyle, "Style engine style")
+	styleFlag := flag.String("style", "", "Override default style")
 	themeFlag := flag.String("theme", "", "Legacy theme fallback if style-engine is offline")
-	intensityFlag := flag.Float64("intensity", cfg.DefaultIntensity, "Style intensity (0.0-1.0)")
+	intensityFlag := flag.Float64("intensity", -1, "Override default intensity (0.0-1.0)")
 	commitsFlag := flag.Int("commits", 1, "Number of recent commits to process")
-	setStyleFlag := flag.String("set-style", "", "Save a default style to config and exit")
-	setIntensityFlag := flag.Float64("set-intensity", -1, "Save a default intensity to config and exit")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: gitective [options]\n\n")
 		fmt.Fprintf(os.Stderr, "Investigate your Git history.\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
-		fmt.Fprintf(os.Stderr, "  --style string        Style-engine style (default: from config, or cyberpunk-commit)\n")
-		fmt.Fprintf(os.Stderr, "  --theme string        Legacy theme fallback if style-engine is offline\n")
-		fmt.Fprintf(os.Stderr, "  --intensity float     Style intensity 0.0-1.0 (default: from config, or 0.8)\n")
-		fmt.Fprintf(os.Stderr, "  --commits int         Number of recent commits to process (default 1)\n")
-		fmt.Fprintf(os.Stderr, "  --set-style string    Save default style to config and exit\n")
-		fmt.Fprintf(os.Stderr, "  --set-intensity float Save default intensity to config and exit\n")
-		fmt.Fprintf(os.Stderr, "  --help                Show this help\n")
+		fmt.Fprintf(os.Stderr, "  --setup          Run interactive setup wizard\n")
+		fmt.Fprintf(os.Stderr, "  --style string   Override default style\n")
+		fmt.Fprintf(os.Stderr, "  --theme string   Legacy theme fallback\n")
+		fmt.Fprintf(os.Stderr, "  --intensity float Override default intensity\n")
+		fmt.Fprintf(os.Stderr, "  --commits int    Number of recent commits (default 1)\n")
+		fmt.Fprintf(os.Stderr, "  --help           Show this help\n")
 	}
 	flag.Parse()
 
-	if *setStyleFlag != "" {
-		cfg.DefaultStyle = *setStyleFlag
-		if err := config.Save(cfg); err != nil {
-			pterm.Error.Printf("Could not save config: %v\n", err)
+	if *setupFlag {
+		if err := config.RunSetup(); err != nil {
+			pterm.Error.Printf("Setup failed: %v\n", err)
 			os.Exit(1)
 		}
-		pterm.Success.Printf("Default style set to: %s\n", *setStyleFlag)
 		return
 	}
 
-	if *setIntensityFlag >= 0 {
-		cfg.DefaultIntensity = *setIntensityFlag
-		if err := config.Save(cfg); err != nil {
-			pterm.Error.Printf("Could not save config: %v\n", err)
+	if !config.IsConfigured() {
+		pterm.Warning.Println("No config found. Let's set you up.")
+		if err := config.RunSetup(); err != nil {
+			pterm.Error.Printf("Setup failed: %v\n", err)
 			os.Exit(1)
 		}
-		pterm.Success.Printf("Default intensity set to: %.0f%%\n", *setIntensityFlag*100)
-		return
+		pterm.Println()
+	}
+
+	cfg := config.Load()
+
+	style := cfg.DefaultStyle
+	if *styleFlag != "" {
+		style = *styleFlag
+	}
+	intensity := cfg.DefaultIntensity
+	if *intensityFlag >= 0 {
+		intensity = *intensityFlag
 	}
 
 	fmt.Println(ui.RenderBanner("Gitective"))
@@ -89,7 +94,7 @@ func main() {
 	}
 
 	client := llm.NewClient(cfg.StyleEngineURL)
-	color := ui.StyleColor(*styleFlag)
+	color := ui.StyleColor(style)
 
 	for i := 0; i < n; i++ {
 		latest := commits[i]
@@ -100,11 +105,11 @@ func main() {
 		}
 
 		if i == 0 || *commitsFlag == 1 {
-			pterm.Info.Printf("Style: %s | Intensity: %.0f%%\n", *styleFlag, *intensityFlag*100)
+			pterm.Info.Printf("Style: %s | Intensity: %.0f%%\n", style, intensity*100)
 		}
 
 		contextPrompt := llm.BuildContext(facts)
-		result, err := client.Transform(contextPrompt, *styleFlag, *intensityFlag)
+		result, err := client.Transform(contextPrompt, style, intensity)
 		if err != nil {
 			pterm.Warning.Printf("Style-engine unavailable: %v\n", err)
 			pterm.Info.Println("Falling back to local theme...")
@@ -112,7 +117,7 @@ func main() {
 			continue
 		}
 
-		header := fmt.Sprintf("// %s", strings.ToUpper(*styleFlag))
+		header := fmt.Sprintf("// %s", strings.ToUpper(style))
 		footer := fmt.Sprintf("Score: %.0f%% | %d retries", result.Score*100, result.Retries)
 		fmt.Println(ui.RenderBox(header, result.Transformed, footer, color))
 	}
