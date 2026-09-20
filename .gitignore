@@ -1,6 +1,6 @@
 # Binaries
 gitective.exe
-gitective
+/gitective
 *.exe
 *.dll
 *.so

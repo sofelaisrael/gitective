@@ -29,9 +29,12 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
-func NewClient() *Client {
+func NewClient(baseURL string) *Client {
+	if baseURL == "" {
+		baseURL = "http://localhost:8080"
+	}
 	return &Client{
-		BaseURL: "http://localhost:8080",
+		BaseURL: baseURL,
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},

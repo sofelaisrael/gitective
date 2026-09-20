@@ -24,14 +24,31 @@ func HandleRepoError(err error) bool {
 	return false
 }
 
-func RenderBox(header, body, footer string) string {
+var styleColors = map[string]string{
+	"cyberpunk-commit":   "#FF2A6D",
+	"renaissance-commit": "#CEA663",
+	"shakespeare":        "#7B2D8E",
+	"pirate":             "#B8860B",
+	"victorian":          "#722F37",
+	"corporate":          "#1A73E8",
+	"genz":               "#FF0050",
+}
+
+func StyleColor(style string) string {
+	if c, ok := styleColors[style]; ok {
+		return c
+	}
+	return "#FF2A6D"
+}
+
+func RenderBox(header, body, footer, color string) string {
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#FF3366")).
+		BorderForeground(lipgloss.Color(color)).
 		PaddingLeft(1).PaddingRight(1).
 		MarginTop(1)
 
-	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF3366")).Bold(true)
+	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true)
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
 
 	content := accentStyle.Render(header) + "\n\n" + body + "\n\n" + dimStyle.Render(footer)

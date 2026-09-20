@@ -8,27 +8,56 @@ import (
 
 	"github.com/pterm/pterm"
 	commitPkg "github.com/sofelaisrael/gitective/internal/commit"
+	"github.com/sofelaisrael/gitective/internal/config"
 	"github.com/sofelaisrael/gitective/internal/git"
 	"github.com/sofelaisrael/gitective/internal/llm"
-	"github.com/sofelaisrael/gitective/internal/personality"
 	"github.com/sofelaisrael/gitective/internal/themes"
 	"github.com/sofelaisrael/gitective/internal/ui"
 )
 
 func main() {
-	styleFlag := flag.String("style", "", "Style engine style (e.g. cyberpunk-commit, renaissance-commit, shakespeare, pirate)")
-	themeFlag := flag.String("theme", "", "Legacy theme: \"cyberpunk\" or \"renaissance\" (fallback if style-engine is offline)")
-	intensityFlag := flag.Float64("intensity", 0.8, "Style intensity (0.0-1.0)")
+	cfg := config.Load()
+
+	styleFlag := flag.String("style", cfg.DefaultStyle, "Style engine style")
+	themeFlag := flag.String("theme", "", "Legacy theme fallback if style-engine is offline")
+	intensityFlag := flag.Float64("intensity", cfg.DefaultIntensity, "Style intensity (0.0-1.0)")
+	commitsFlag := flag.Int("commits", 1, "Number of recent commits to process")
+	setStyleFlag := flag.String("set-style", "", "Save a default style to config and exit")
+	setIntensityFlag := flag.Float64("set-intensity", -1, "Save a default intensity to config and exit")
+
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: gitective [options]\n\n")
 		fmt.Fprintf(os.Stderr, "Investigate your Git history.\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
-		fmt.Fprintf(os.Stderr, "  --style string     Style-engine style (e.g. cyberpunk-commit, shakespeare)\n")
-		fmt.Fprintf(os.Stderr, "  --theme string     Legacy theme fallback (\"cyberpunk\" or \"renaissance\")\n")
-		fmt.Fprintf(os.Stderr, "  --intensity float  Style intensity 0.0-1.0 (default 0.8)\n")
-		fmt.Fprintf(os.Stderr, "  --help             Show this help\n")
+		fmt.Fprintf(os.Stderr, "  --style string        Style-engine style (default: from config, or cyberpunk-commit)\n")
+		fmt.Fprintf(os.Stderr, "  --theme string        Legacy theme fallback if style-engine is offline\n")
+		fmt.Fprintf(os.Stderr, "  --intensity float     Style intensity 0.0-1.0 (default: from config, or 0.8)\n")
+		fmt.Fprintf(os.Stderr, "  --commits int         Number of recent commits to process (default 1)\n")
+		fmt.Fprintf(os.Stderr, "  --set-style string    Save default style to config and exit\n")
+		fmt.Fprintf(os.Stderr, "  --set-intensity float Save default intensity to config and exit\n")
+		fmt.Fprintf(os.Stderr, "  --help                Show this help\n")
 	}
 	flag.Parse()
+
+	if *setStyleFlag != "" {
+		cfg.DefaultStyle = *setStyleFlag
+		if err := config.Save(cfg); err != nil {
+			pterm.Error.Printf("Could not save config: %v\n", err)
+			os.Exit(1)
+		}
+		pterm.Success.Printf("Default style set to: %s\n", *setStyleFlag)
+		return
+	}
+
+	if *setIntensityFlag >= 0 {
+		cfg.DefaultIntensity = *setIntensityFlag
+		if err := config.Save(cfg); err != nil {
+			pterm.Error.Printf("Could not save config: %v\n", err)
+			os.Exit(1)
+		}
+		pterm.Success.Printf("Default intensity set to: %.0f%%\n", *setIntensityFlag*100)
+		return
+	}
 
 	fmt.Println(ui.RenderBanner("Gitective"))
 
@@ -54,47 +83,54 @@ func main() {
 		return
 	}
 
-	latest := commits[0]
-	facts, err := commitPkg.ExtractFacts(root, latest.Hash)
-	if err != nil {
-		pterm.Error.Printf("Error: %v\n", err)
-		os.Exit(1)
+	n := *commitsFlag
+	if n > len(commits) {
+		n = len(commits)
 	}
 
-	// Try LLM path first if --style is set
-	if *styleFlag != "" {
-		pterm.Info.Printf("Connecting to style-engine (style: %s)...\n", *styleFlag)
-		client := llm.NewClient()
-		contextPrompt := llm.BuildContext(facts)
+	client := llm.NewClient(cfg.StyleEngineURL)
+	color := ui.StyleColor(*styleFlag)
 
+	for i := 0; i < n; i++ {
+		latest := commits[i]
+		facts, err := commitPkg.ExtractFacts(root, latest.Hash)
+		if err != nil {
+			pterm.Error.Printf("Error extracting facts for %s: %v\n", latest.Hash[:8], err)
+			continue
+		}
+
+		if i == 0 || *commitsFlag == 1 {
+			pterm.Info.Printf("Style: %s | Intensity: %.0f%%\n", *styleFlag, *intensityFlag*100)
+		}
+
+		contextPrompt := llm.BuildContext(facts)
 		result, err := client.Transform(contextPrompt, *styleFlag, *intensityFlag)
 		if err != nil {
 			pterm.Warning.Printf("Style-engine unavailable: %v\n", err)
 			pterm.Info.Println("Falling back to local theme...")
-			// Fall through to local theme
-		} else {
-			// Render LLM result with lipgloss box
-			p := personality.Classify(facts)
-			header := fmt.Sprintf("// %s", strings.ToUpper(string(p)))
-			footer := fmt.Sprintf("STATUS: %s | Score: %.0f%%", strings.ToUpper(strings.ReplaceAll(string(p), "_", " ")), result.Score*100)
-			fmt.Println(ui.RenderBox(header, result.Transformed, footer))
-			return
+			fallbackRender(facts, *themeFlag)
+			continue
 		}
-	}
 
-	// Fallback: local theme rendering
-	if *themeFlag == "" {
-		*themeFlag = "cyberpunk"
+		header := fmt.Sprintf("// %s", strings.ToUpper(*styleFlag))
+		footer := fmt.Sprintf("Score: %.0f%% | %d retries", result.Score*100, result.Retries)
+		fmt.Println(ui.RenderBox(header, result.Transformed, footer, color))
 	}
-	var theme themes.Theme
-	switch *themeFlag {
+}
+
+func fallbackRender(facts commitPkg.CommitFacts, theme string) {
+	if theme == "" {
+		theme = "cyberpunk"
+	}
+	var t themes.Theme
+	switch theme {
 	case "cyberpunk":
-		theme = themes.CyberpunkTheme{}
+		t = themes.CyberpunkTheme{}
 	case "renaissance":
-		theme = themes.RenaissanceTheme{}
+		t = themes.RenaissanceTheme{}
 	default:
-		pterm.Error.Printf("Unknown theme: %q\n", *themeFlag)
-		os.Exit(1)
+		pterm.Error.Printf("Unknown theme: %q\n", theme)
+		return
 	}
-	fmt.Println(theme.Render(facts))
+	fmt.Println(t.Render(facts))
 }
