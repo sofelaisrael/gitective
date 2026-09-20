@@ -32,6 +32,7 @@ var styleColors = map[string]string{
 	"victorian":          "#722F37",
 	"corporate":          "#1A73E8",
 	"genz":               "#FF0050",
+	"noir-detective":     "#00CC99",
 }
 
 func StyleColor(style string) string {

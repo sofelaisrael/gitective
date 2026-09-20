@@ -159,6 +159,10 @@ func runVisualizer(style string, intensity float64, engineURL string, numCommits
 	commitStyles := make([]git.CommitStyle, n)
 	for i := 0; i < n; i++ {
 		commitStyles[i] = git.ReadTrailers(root, commits[i].Hash)
+		if commitStyles[i].Style == "" {
+			commitStyles[i].Style = style
+			commitStyles[i].Intensity = intensity
+		}
 	}
 
 	fmt.Println(ui.RenderCommitTree(commits[:n], commitStyles))

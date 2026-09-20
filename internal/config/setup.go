@@ -20,6 +20,7 @@ var styleOptions = []struct {
 	{"victorian", "Proper English — leather-bound and gaslit"},
 	{"corporate", "Synergy speak — jargon-filled and professional"},
 	{"genz", "No cap fam — TikTok energy and vibes"},
+	{"noir-detective", "Hardboiled detective noir — rain, smoke, and cold cases"},
 }
 
 func RunSetup() error {

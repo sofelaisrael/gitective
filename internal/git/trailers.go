@@ -18,7 +18,7 @@ func ReadTrailers(repoPath, hash string) CommitStyle {
 		return CommitStyle{}
 	}
 
-	cs := CommitStyle{Style: "cyberpunk-commit", Intensity: 0.8}
+	cs := CommitStyle{}
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
